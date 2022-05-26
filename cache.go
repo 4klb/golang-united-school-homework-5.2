@@ -1,43 +1,66 @@
 package cache
 
-import "time"
+import (
+	"time"
+)
 
 type Cache struct {
-	m map[string]string
+	m map[string]Data
 }
 
-func NewCache() Cache {
-	return Cache{}
+type Data struct {
+	val     string
+	expired bool
+	date    time.Time
 }
 
-func (c *Cache) Get(key string) (string, bool) {
-	k, ok := c.m[key]
-	if !ok {
-		return "", ok
+func NewCache() *Cache {
+	return &Cache{
+		make(map[string]Data),
 	}
-	return k, ok
 }
 
 func (c *Cache) Put(key, value string) {
-	c.m[key] = value
-}
-
-func (c *Cache) Keys() []string {
-	var keys []string
-
-	for key, _ := range c.m {
-		keys = append(keys, key)
+	data := Data{
+		val:     value,
+		expired: false,
 	}
-
-	return keys
+	c.m[key] = data
 }
 
 func (c *Cache) PutTill(key, value string, deadline time.Time) {
-	startTime := time.Now()
-	res := startTime.Before(deadline)
-	if res {
-		time.Sleep(2 * time.Second)
-		c.m[key] = value
-		time.Sleep(2 * time.Second)
+	data := Data{
+		val:     value,
+		expired: true,
+		date:    deadline,
 	}
+	c.m[key] = data
+}
+
+func (c *Cache) Get(key string) (string, bool) {
+	startTime := time.Now()
+
+	data, ok := c.m[key] //has that key
+	if !ok {
+		return "", ok
+	}
+	if !data.expired { // has deadline
+		return data.val, ok
+	}
+	res := startTime.Before(data.date)
+	if res {
+		return data.val, true
+	} else {
+		delete(c.m, key)
+		return "", false
+	}
+}
+
+func (c *Cache) Keys() []string {
+	var arr []string
+	for key := range c.m {
+		arr = append(arr, key)
+
+	}
+	return arr
 }
