@@ -9,9 +9,9 @@ type Cache struct {
 }
 
 type Data struct {
-	val     string
-	expired bool
-	date    time.Time
+	val         string
+	hasDeadline bool
+	deadline    time.Time
 }
 
 func NewCache() *Cache {
@@ -22,17 +22,17 @@ func NewCache() *Cache {
 
 func (c *Cache) Put(key, value string) {
 	data := Data{
-		val:     value,
-		expired: false,
+		val:         value,
+		hasDeadline: false,
 	}
 	c.m[key] = data
 }
 
 func (c *Cache) PutTill(key, value string, deadline time.Time) {
 	data := Data{
-		val:     value,
-		expired: true,
-		date:    deadline,
+		val:         value,
+		hasDeadline: true,
+		deadline:    deadline,
 	}
 	c.m[key] = data
 }
@@ -40,20 +40,21 @@ func (c *Cache) PutTill(key, value string, deadline time.Time) {
 func (c *Cache) Get(key string) (string, bool) {
 	startTime := time.Now()
 
-	data, ok := c.m[key] //has that key
+	data, ok := c.m[key]
 	if !ok {
 		return "", ok
 	}
-	if !data.expired { // has deadline
-		return data.val, ok
+
+	if data.hasDeadline {
+		notExp := startTime.Before(data.deadline)
+		if notExp {
+			return data.val, true
+		} else {
+			delete(c.m, key)
+			return "", false
+		}
 	}
-	res := startTime.Before(data.date)
-	if res {
-		return data.val, true
-	} else {
-		delete(c.m, key)
-		return "", false
-	}
+	return data.val, ok
 }
 
 func (c *Cache) Keys() []string {
